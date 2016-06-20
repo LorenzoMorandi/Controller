@@ -2,7 +2,7 @@
 
 controller_class::controller_class()
 {
-    twist.angular.x = 1; //fail!!!
+    twist.angular.x = 0; 
     twist.angular.y = 0;
     twist.angular.z = 0;
     twist.linear.x = 0;
