@@ -66,7 +66,7 @@ void controller_class::run()
 	err_ang = AngularErr(curr_pose, ref);
 	
 	if(fabs(err_ang) > (M_PI*6)/7)
-	    twist.angular.z = 0.1;
+	    twist.angular.z = 0.05;
 
 	    
 	err_lin_old += err_lin;
@@ -74,7 +74,7 @@ void controller_class::run()
         
         if(err_lin > 0.2)
         {
-	    if (err_ang > 0.05 || err_ang < -0.05)
+	    if (sin(err_ang) > 0.05 || sin(err_ang) < -0.05)
 	    {
             twist.linear.x = 0;
             twist.angular.z = kp2*sin(err_ang) + ki2*err_ang_old;

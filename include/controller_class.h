@@ -24,8 +24,8 @@ private:
     double err_lin_old= 0.0;
     double kp1= 0.01;
     double ki1= 0.001;
-    double kp2= 0.3;
-    double ki2= 0.03;
+    double kp2= 0.5;
+    double ki2= 0;
     
     ros::NodeHandle n;
     ros::Subscriber current_pose_sub;
