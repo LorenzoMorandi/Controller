@@ -2,32 +2,17 @@
 
 controller_class::controller_class()
 {
-    twist.angular.x = 0; 
-    twist.angular.y = 0;
-    twist.angular.z = 0;
-    twist.linear.x = 0;
-    twist.linear.y = 0;
-    twist.linear.z = 0;
     
-    curr_pose.x= 0;
-    curr_pose.y = 0;
-    curr_pose.theta = 0;
-    
-    ref.x = 0;
-    ref.y = 0;
-    ref.theta = 0;
 }
 
-controller_class::~controller_class(){}
+controller_class::~controller_class()
+{
+    
+}
 
 void controller_class::ReadCurPos(const turtlesim::Pose::ConstPtr& msg)
 {
     curr_pose = *msg;
-}
-
-void controller_class::ReadRef(const turtlesim::Pose::ConstPtr& msg)
-{
-    ref = *msg;
 }
 
 double controller_class::AngularErr(turtlesim::Pose current, turtlesim::Pose reference)
@@ -43,11 +28,33 @@ double controller_class::LinearErr(turtlesim::Pose current, turtlesim::Pose refe
     return  sqrt(pow((reference.y-current.y),2)+pow((reference.x-current.x),2));
 }
 
+void controller_class::SetRef(turtlesim::Pose center, double radius, int vertex_number)
+{
+//     vertex.resize(vertex_number);
+    vertex_count=0;
+    
+    turtlesim::Pose tmp;
+    
+    for(int i=0; i<vertex_number; i++)
+    {
+	tmp.x=center.x+radius*cos(M_PI/vertex_number+i*2*M_PI/vertex_number);
+	tmp.y=center.y+radius*sin(M_PI/vertex_number+i*2*M_PI/vertex_number);
+	vertex.push_back(tmp);
+    }
+    ref=vertex.at(vertex_count);
+}
+
 void controller_class::init()
 {
     current_pose_sub = n.subscribe("pose", 1, &controller_class::ReadCurPos, this);
-    reference_pose_sub = n.subscribe("ref", 1, &controller_class::ReadRef, this);        
-    controller_pub = n.advertise<geometry_msgs::Twist>("cmd_vel", 1000);  
+    controller_pub = n.advertise<geometry_msgs::Twist>("cmd_vel", 1); 
+    ref=curr_pose;
+    
+    turtlesim::Pose center;
+    center.x=5;
+    center.y=5;
+   
+    SetRef(center, 2, 8);
 }
 
 void controller_class::run()
@@ -59,67 +66,51 @@ void controller_class::run()
 
     while (ros::ok())
     {
-	if(count < 50)
-	    ref=curr_pose;
 
 	err_lin = LinearErr(curr_pose, ref);
 	err_ang = AngularErr(curr_pose, ref);
-	
-	if(fabs(err_ang) > (M_PI*6)/7)
-	    twist.angular.z = 0.05;
-
-	    
+	      
 	err_lin_old += err_lin;
         err_ang_old += err_ang;
         
-        if(err_lin > 0.2)
+        if(err_lin > 0.01)
         {
-	    if (sin(err_ang) > 0.05 || sin(err_ang) < -0.05)
+	    if (sin(err_ang) > 0.005 || sin(err_ang) < -0.005)
 	    {
-            twist.linear.x = 0;
-            twist.angular.z = kp2*sin(err_ang) + ki2*err_ang_old;
+		twist.linear.x = 0;
+		twist.angular.z = kp2*sin(err_ang) + ki2*sin(err_ang_old);
 	    }
 	    else
 	    {
-	    twist.linear.x = kp1*err_lin + ki1*err_lin_old;
-            twist.angular.z = 0;
+		twist.linear.x = kp1*err_lin + ki1*err_lin_old;
+		twist.angular.z = 0;
 	    }
 	}
-        else
+        else 
         {
 	    twist.linear.x = 0;
             twist.angular.z = 0;
+	    err_lin_old=0;
+	    err_ang_old=0;
+	    ROS_INFO_STREAM(vertex_count);
+	    ref=vertex.at(vertex_count);
+	    vertex_count++;
+
+	    vertex_count=vertex_count%vertex.size();
         }
 	
-	
-        
-	
-// 	if(err_lin > 0.005)
-// 	{
-// 	    if(abs(err_ang) > 0.01)
-// 	    {
-// 		twist.angular.z = ka*err_ang;
-// 		twist.linear.x = 0;
-// 	    }
-// 	    else
-// 	    {
-// 		twist.angular.z = 0;
-// 		twist.linear.x = kl*err_lin;
-// 	    }
-// 	}
-// 	else
-// 	{
-// 	    twist.angular.z = 0.0; 
-// 	    twist.linear.x = 0.0;
-// 	}
-
-	ROS_INFO_STREAM("angular error: " << err_ang*180/M_PI);
-	ROS_INFO_STREAM("linear error: " << err_lin);
+	if(count%200 == 0)
+	{
+// 	    ROS_INFO_STREAM("angular error: " << err_ang*180/M_PI << "\tlinear error: " << err_lin);
+// 	    ROS_INFO_STREAM("Curr: (" << curr_pose.x << " " << curr_pose.y << ")");
+// 	    ROS_WARN_STREAM("Ref: (" << ref.x << " " << ref.y << ")");
+	    count = 0;
+	}
 	
 	controller_pub.publish(twist);
 
 	ros::spinOnce();
 	loop_rate.sleep();
 	++count;
-	}
+    }
 }
