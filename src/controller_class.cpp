@@ -1,4 +1,7 @@
 #include "controller_class.h"
+#include <dynamic_reconfigure/server.h>
+#include <controller/TutorialsConfig.h>
+
 
 controller_class::controller_class()
 {
@@ -30,7 +33,6 @@ double controller_class::LinearErr(turtlesim::Pose current, turtlesim::Pose refe
 
 void controller_class::SetRef(turtlesim::Pose center, double radius, int vertex_number)
 {
-//     vertex.resize(vertex_number);
     vertex_count=0;
     
     turtlesim::Pose tmp;
@@ -44,8 +46,26 @@ void controller_class::SetRef(turtlesim::Pose center, double radius, int vertex_
     ref=vertex.at(vertex_count);
 }
 
+void controller_class::callback(dynamic_tutorials::TutorialsConfig &config, uint32_t level) {
+//   ROS_INFO("Reconfigure Request: %f %f %f %f", /*%s %s %d*/
+//             kp1=config.kp1, 
+// 	    ki1=config.ki1,
+// 	    kp2=config.kp2, 
+// 	    ki2=config.ki2); 
+	    kp1 = config.kp1;
+	    kp2 = config.kp2;
+	    ki1 = config.ki1;
+	    ki2 = config.ki2;
+//             config.str_param.c_str(), 
+//             config.bool_param?"True":"False", 
+//             config.size);
+}
+
 void controller_class::init()
 {
+    f = boost::bind(&controller_class::callback,this, _1, _2);
+    server.setCallback(f);
+    
     current_pose_sub = n.subscribe("pose", 1, &controller_class::ReadCurPos, this);
     controller_pub = n.advertise<geometry_msgs::Twist>("cmd_vel", 1); 
     ref=curr_pose;
@@ -54,7 +74,7 @@ void controller_class::init()
     center.x=5;
     center.y=5;
    
-    SetRef(center, 2, 8);
+    SetRef(center, 2, 20);
 }
 
 void controller_class::run()
@@ -92,18 +112,17 @@ void controller_class::run()
             twist.angular.z = 0;
 	    err_lin_old=0;
 	    err_ang_old=0;
-	    ROS_INFO_STREAM(vertex_count);
+
 	    ref=vertex.at(vertex_count);
 	    vertex_count++;
-
 	    vertex_count=vertex_count%vertex.size();
         }
 	
 	if(count%200 == 0)
 	{
-// 	    ROS_INFO_STREAM("angular error: " << err_ang*180/M_PI << "\tlinear error: " << err_lin);
-// 	    ROS_INFO_STREAM("Curr: (" << curr_pose.x << " " << curr_pose.y << ")");
-// 	    ROS_WARN_STREAM("Ref: (" << ref.x << " " << ref.y << ")");
+	    ROS_INFO_STREAM("angular error: " << err_ang*180/M_PI << "\tlinear error: " << err_lin);
+	    ROS_INFO_STREAM("Curr: (" << curr_pose.x << " " << curr_pose.y << ")");
+	    ROS_WARN_STREAM("Ref: (" << ref.x << " " << ref.y << ")");
 	    count = 0;
 	}
 	
